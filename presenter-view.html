@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Presenter View — SaaS to the Future</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #111; color: #eee; height: 100vh; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+
+    /* TOP BAR */
+    .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; }
+    .slide-label { font-size: 13px; font-weight: 600; color: #888; letter-spacing: 0.08em; text-transform: uppercase; }
+    .slide-label span { color: #0ECAD4; }
+
+    /* MAIN AREA */
+    .main { display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow: hidden; }
+
+    /* NOTES PANEL */
+    .notes-panel { padding: 28px 32px; overflow-y: auto; border-right: 1px solid #2a2a2a; }
+    .notes-panel h3 { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #0ECAD4; margin-bottom: 16px; }
+    .notes-content { font-size: 15px; line-height: 1.75; color: rgba(255,255,255,0.78); }
+    .notes-content p { margin-bottom: 12px; }
+    .notes-content strong { color: #fff; font-weight: 600; }
+    .notes-content em { color: #0ECAD4; font-style: italic; }
+
+    /* SLIDE PREVIEWS */
+    .previews { display: flex; flex-direction: column; background: #0d0d0d; gap: 0; }
+    .preview-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .preview-panel h3 { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #555; padding: 16px 24px 8px; }
+    .preview-panel.current h3 { color: #0ECAD4; }
+    .preview-wrap { flex: 1; padding: 0 24px 12px; position: relative; min-height: 0; }
+    .preview-wrap iframe {
+      width: 100%; height: 100%; border: 1px solid #2a2a2a; border-radius: 6px;
+      background: #1F2426; pointer-events: none;
+    }
+    .preview-panel.current .preview-wrap iframe { border-color: rgba(14,202,212,0.3); }
+
+    /* BOTTOM NAV */
+    .bottom-bar { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 14px 20px; background: #1a1a1a; border-top: 1px solid #2a2a2a; }
+    .nav-btn {
+      background: none; border: 1px solid #333; color: #ccc; font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 500; padding: 8px 24px; border-radius: 6px; cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nav-btn:hover { border-color: #0ECAD4; color: #0ECAD4; }
+    .nav-btn:active { background: rgba(14,202,212,0.08); }
+    .nav-btn:disabled { opacity: 0.25; cursor: default; border-color: #333; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="slide-label">Slide <span id="currentNum">1</span> of <span id="totalNum">17</span></div>
+  </div>
+
+  <div class="main">
+    <div class="notes-panel">
+      <h3>Speaker notes</h3>
+      <div class="notes-content" id="notesContent"></div>
+    </div>
+    <div class="previews">
+      <div class="preview-panel current">
+        <h3>Current slide</h3>
+        <div class="preview-wrap">
+          <iframe id="currentFrame" src="saas-to-the-future.html#slide-1" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+      </div>
+      <div class="preview-panel">
+        <h3>Next slide</h3>
+        <div class="preview-wrap">
+          <iframe id="previewFrame" src="saas-to-the-future.html#slide-2" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="nav-btn" id="prevBtn">← Prev</button>
+    <button class="nav-btn" id="nextBtn">Next →</button>
+  </div>
+
+  <script>
+    const TOTAL = 17;
+    let current = 1;
+
+    const notes = {
+      1: `Hey everyone! I'm excited to present the progress made in our SaaS to the Future UX initiative.`,
+
+      2: `As we all know, we have a goal to be more than a platform — we want to be core software, critical to our users' businesses. We call it moving to SaaS, but that oversimplifies it.`,
+
+      3: `Our customers are high-scale agencies — Performance-critical Enterprises — Marketing, Publishing, Commerce brands who want to build fast, optimize for outcomes, and leverage the latest and greatest tools to make their best work yet.`,
+
+      4: `The problem? In their eyes, we're a web host…a host built on a platform on the same modernization journey we are. If it's hard to build in WordPress already, the gap in AI tooling making everything else easier makes it even harder for WordPress to catch up.`,
+
+      5: `We have a huge portfolio of products spanning various stages of the site creation and management lifecycle, but we lack a connective thread, workflow, to have the opinionated stances required to be a true turnkey saas.\n\nOur intelligent web initiative layers a new exciting complication — agentically-accessible knowledgebases — that create this opportunity for connective tissue.`,
+
+      6: `Over the last five weeks we pored over research, read strategy docs, did competitive analysis, brainstorming, userflows and journey mapping, jobs-to-be-done analyses, and finally some interface exploration to visualize what the moves we're looking to make could mean for us.\n\nMuch of the time was spent simply wrapping our heads around these ideas, and while they are early, they provide a good start for us to pressure test thoughts, ask questions, and drive the next rounds of clarity in which direction we want to head in our customer experience.`,
+
+      7: `<strong>This is not the endpoint, or even a fully-detailed roadmap for the future</strong> — this is the point where stakeholders start to be engaged, feedback starts to be gathered, and the rubber starts to meet the road.`,
+
+      8: `We certainly have some catch up to do as a company, but consider this a visualization of a leapfrog to a more connected future.`,
+
+      9: `We aligned on a few critical themes:\n\n1. Our customers need to build their sites in a modern way. For today, for tomorrow.\n2. They should be able to use our tools, even if their sites are not hosted with us.\n3. We have a unique opportunity to bridge this divide and directly improve our customers' outcomes by giving them intelligence around their content.\n4. It should feel <em>even better</em> to use our products when working with a team.\n5. And finally, we even had a chance to do some early concept testing, so we have some early feedback on these ideas.`,
+
+      10: `So let's get into the themes!`,
+
+      11: `Our customers are managing large portfolios for clients who hold them accountable. They're cobbling together products and services and tools and plugins across fragmented ecosystems — introducing fragility every step of the way.\n\nWe know they struggle to stay up-to-date on emerging trends and technologies. AI gives less technical people greater access to the keys to the Porsche, and helps accelerate their workflows — which as people adopt, risks WordPress...and our tools...becoming the bottleneck.\n\nAt the end of the day, we're not a host, we're a reputation engine. Operational efficiency, modern tooling, platform reliability, and the ability to prove their value to their clients are not nice-to-haves.\n\n<strong>[pass to video — Dale]</strong>`,
+
+      12: `Agencies choose hosts for reasons outside of our control. Budget, client preference, access...and yes, whether or not they like us.\n\nBut for those where "liking us" isn't the barrier, when they have a site somewhere else, they just have to deal. Multiple areas to manage, passwords all over the place, development pipelines.\n\nNow we have the intelligent web strategy — whose entire purpose is to leverage content in new ways...and content isn't platform-specific.\n\nSo how do we take advantage of this opportunity to provide value to customers who don't host with us?\n\n<strong>[pass to video — Hayley]</strong>`,
+
+      13: `At the end of the day, a site is a repository of content. Not just the content of the site itself, but how it's accessed, stats, and analytics.\n\nWith the power of LLMs and AI, where content is the currency, we have an opportunity to give our customers superpowers just by leveraging what's in front of us.\n\nBy turning sites into knowledgebases, we unlock the power of agents <em>in</em> sites through chatbots, recommendation engines, and more...we also unlock the power of agents <em>on</em> sites by increasing the context for agentic actors.\n\nThe best part is we don't have to change behavior — it's ours for the taking because the sites already exist.\n\n<strong>[pass to video — Kam - KB / Zolly - Agents]</strong>`,
+
+      14: `Organization of work does not match mental models of how our customers work — accounts are a billing concept we have made our core navigational model.\n\nSite management spans the technical spectrum of users — developers, marketers, designers, account managers, clients. Everyone needs different access, and is focusing on different pieces of the work — sometimes slightly out of their depth.\n\nOur customers have struggled for years with getting their teams into their sites — our current experience is limited and confusing. Working together, while maintaining the control an organization needs, is hard. Agencies and Enterprises need flexibility to give their teams access in a secure manner, and control what their client has access to. And now with agents in the mix, it's more important than ever that the humans can see what they need to see and control what they need to control.\n\nAnd when it comes to proving the value of what they do for their clients, the spectre of AI enablement goes both ways — yes, it speeds up our customers' workflows, but their risk is that their clients think they're not worth working with if AI can just do this without them. So how do we help them continue to grow their customer impact and scale?\n\nWe want customers to graduate <em>into</em> our products, not out of them.\n\n<strong>[pass to video — Hayley]</strong>`,
+
+      15: `Because of the timing, we were able to get some initial feedback on this work from our customers. Here's Grace with a brief recap of the UXR.\n\n<strong>[pass to video — Grace]</strong>`,
+
+      16: `Think about the four themes — how are they resonating? Where are they failing?\n\nAre there specific workflows that stand out as ultra valuable? That feel totally wrong? Showing promise, but need more depth before you're sure?\n\nWhat do you need from us to move forward? More robust exploration? More of a storytelling / "rally cry" view like our work in 2022? Something else?`,
+
+      17: `Thanks so much!\n\n<strong>Our ask</strong> — We want to keep pushing here, but need alignment on what the right next phase is. I'm excited to hear what would be helpful to you and where we should dig in more.`
+    };
+
+    const channel = new BroadcastChannel('presenter-sync');
+    const currentNum = document.getElementById('currentNum');
+    const notesContent = document.getElementById('notesContent');
+    const currentFrame = document.getElementById('currentFrame');
+    const previewFrame = document.getElementById('previewFrame');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    function update() {
+      currentNum.textContent = current;
+      notesContent.innerHTML = (notes[current] || '').replace(/\n/g, '<br>');
+      currentFrame.src = `saas-to-the-future.html#slide-${current}`;
+      const nextSlide = Math.min(current + 1, TOTAL);
+      previewFrame.src = `saas-to-the-future.html#slide-${nextSlide}`;
+      prevBtn.disabled = current <= 1;
+      nextBtn.disabled = current >= TOTAL;
+      channel.postMessage({ type: 'goto', slide: current });
+    }
+
+    prevBtn.addEventListener('click', () => { if (current > 1) { current--; update(); } });
+    nextBtn.addEventListener('click', () => { if (current < TOTAL) { current++; update(); } });
+
+    document.addEventListener('keydown', e => {
+      if (['ArrowRight', 'ArrowDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); nextBtn.click(); }
+      if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); prevBtn.click(); }
+    });
+
+    channel.onmessage = e => {
+      if (e.data.type === 'slideChanged') {
+        current = e.data.slide;
+        update();
+      }
+    };
+
+    update();
+  </script>
+</body>
+</html>
