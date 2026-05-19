@@ -732,6 +732,7 @@
         this.themeItems = Array.from(document.querySelectorAll('#themeItems .theme-item'));
         this.themesRevealed = 0;
         this.pageOverlay = document.getElementById('page-overlay');
+        this.scrollLocked = false;
         this.init();
       }
 
@@ -772,6 +773,7 @@
           entries.forEach(entry => {
             if (entry.isIntersecting) {
               entry.target.classList.add('visible');
+              if (this.scrollLocked) return;
               const idx = this.slides.indexOf(entry.target);
               if (idx !== -1) this.updateUI(idx);
             }
@@ -820,6 +822,7 @@
 
       advance() {
         if (this.currentSlide === this.themesIdx && this.themesRevealed < this.themeItems.length) {
+          this.scrollLocked = true;
           this.themeItems[this.themesRevealed].classList.add('revealed');
           this.themesRevealed++;
           history.replaceState(null, '', `#slide-${this.themesIdx + 1}-${this.themesRevealed}`);
@@ -827,6 +830,7 @@
             this.themesHint.textContent = this.themesRevealed === this.themeItems.length
               ? 'Press space or → to continue' : 'Press space or → to reveal';
           }
+          setTimeout(() => { this.scrollLocked = false; }, 600);
         } else {
           this.goTo(this.currentSlide + 1);
         }
@@ -834,10 +838,12 @@
 
       retreat() {
         if (this.currentSlide === this.themesIdx && this.themesRevealed > 0) {
+          this.scrollLocked = true;
           this.themesRevealed--;
           this.themeItems[this.themesRevealed].classList.remove('revealed');
           history.replaceState(null, '', this.themesRevealed > 0 ? `#slide-${this.themesIdx + 1}-${this.themesRevealed}` : `#slide-${this.themesIdx + 1}`);
           if (this.themesHint) this.themesHint.textContent = 'Press space or → to reveal';
+          setTimeout(() => { this.scrollLocked = false; }, 600);
         } else {
           this.goTo(this.currentSlide - 1);
         }
@@ -845,7 +851,10 @@
 
       goTo(idx) {
         const c = Math.max(0, Math.min(this.totalSlides - 1, idx));
+        this.scrollLocked = true;
         this.slides[c].scrollIntoView({ behavior: 'smooth' });
+        this.updateUI(c);
+        setTimeout(() => { this.scrollLocked = false; }, 800);
       }
 
       setupKeyboard() {
@@ -884,18 +893,58 @@
 
     const pres = new SlidePresentation();
 
-    const channel = new BroadcastChannel('presenter-sync');
-    let fromPresenter = false;
-    channel.onmessage = e => {
-      if (e.data.type === 'goto') { fromPresenter = true; pres.goTo(e.data.slide - 1); }
-    };
+    if (window.parent === window) {
+      const channel = new BroadcastChannel('presenter-sync');
+      let fromPresenter = false;
 
-    const origUpdate = pres.updateUI.bind(pres);
-    pres.updateUI = function(idx) {
-      origUpdate(idx);
-      if (!fromPresenter) channel.postMessage({ type: 'slideChanged', slide: idx + 1 });
-      fromPresenter = false;
-    };
+      channel.onmessage = e => {
+        if (e.data.type === 'goto') {
+          fromPresenter = true;
+          const idx = e.data.slide - 1;
+          if (e.data.restart) {
+            pres.slides.forEach(s => s.classList.remove('visible'));
+            pres.themeItems.forEach(t => t.classList.remove('revealed'));
+            pres.themesRevealed = 0;
+          }
+          pres.goTo(idx);
+          if (idx === pres.themesIdx && e.data.sub != null) {
+            pres.themeItems.forEach(t => t.classList.remove('revealed'));
+            const count = Math.min(e.data.sub, pres.themeItems.length);
+            for (let i = 0; i < count; i++) pres.themeItems[i].classList.add('revealed');
+            pres.themesRevealed = count;
+          }
+        }
+      };
+
+      function broadcastState() {
+        channel.postMessage({
+          type: 'slideChanged',
+          slide: pres.currentSlide + 1,
+          themesRevealed: pres.themesRevealed
+        });
+      }
+
+      const origUpdate = pres.updateUI.bind(pres);
+      pres.updateUI = function(idx) {
+        origUpdate(idx);
+        if (!fromPresenter) broadcastState();
+        fromPresenter = false;
+      };
+
+      const origAdvance = pres.advance.bind(pres);
+      pres.advance = function() {
+        const wasSub = pres.currentSlide === pres.themesIdx && pres.themesRevealed < pres.themeItems.length;
+        origAdvance();
+        if (wasSub) broadcastState();
+      };
+
+      const origRetreat = pres.retreat.bind(pres);
+      pres.retreat = function() {
+        const wasSub = pres.currentSlide === pres.themesIdx && pres.themesRevealed > 0;
+        origRetreat();
+        if (wasSub) broadcastState();
+      };
+    }
   </script>
 </body>
 </html>

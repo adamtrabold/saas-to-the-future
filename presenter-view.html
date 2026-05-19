@@ -76,6 +76,7 @@
   </div>
 
   <div class="bottom-bar">
+    <button class="nav-btn" id="restartBtn">⟲ Restart</button>
     <button class="nav-btn" id="prevBtn">← Prev</button>
     <button class="nav-btn" id="nextBtn">Next →</button>
   </div>
@@ -120,41 +121,103 @@
       17: `Thanks so much!\n\n<strong>Our ask</strong> — We want to keep pushing here, but need alignment on what the right next phase is. I'm excited to hear what would be helpful to you and where we should dig in more.`
     };
 
+    const THEME_SLIDE = 9;
+    const THEME_COUNT = 5;
+    let themeSub = 0;
+
+    const themeNoteIntro = 'We aligned on a few critical themes:';
+    const themeNoteItems = [
+      '1. Our customers need to build their sites in a modern way. For today, for tomorrow.',
+      '2. They should be able to use our tools, even if their sites are not hosted with us.',
+      '3. We have a unique opportunity to bridge this divide and directly improve our customers\' outcomes by giving them intelligence around their content.',
+      '4. It should feel <em>even better</em> to use our products when working with a team.',
+      '5. And finally, we even had a chance to do some early concept testing, so we have some early feedback on these ideas.'
+    ];
+
     const channel = new BroadcastChannel('presenter-sync');
     const currentNum = document.getElementById('currentNum');
     const notesContent = document.getElementById('notesContent');
     const currentFrame = document.getElementById('currentFrame');
     const previewFrame = document.getElementById('previewFrame');
+    const restartBtn = document.getElementById('restartBtn');
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
 
-    function update() {
-      currentNum.textContent = current;
-      notesContent.innerHTML = (notes[current] || '').replace(/\n/g, '<br>');
-      currentFrame.src = `saas-to-the-future.html#slide-${current}`;
-      const nextSlide = Math.min(current + 1, TOTAL);
-      previewFrame.src = `saas-to-the-future.html#slide-${nextSlide}`;
-      prevBtn.disabled = current <= 1;
-      nextBtn.disabled = current >= TOTAL;
-      channel.postMessage({ type: 'goto', slide: current });
+    function slideHash(slide, sub) {
+      if (slide === THEME_SLIDE && sub > 0) return `#slide-${slide}-${sub}`;
+      return `#slide-${slide}`;
     }
 
-    prevBtn.addEventListener('click', () => { if (current > 1) { current--; update(); } });
-    nextBtn.addEventListener('click', () => { if (current < TOTAL) { current++; update(); } });
+    function nextSlideHash() {
+      if (current === THEME_SLIDE && themeSub < THEME_COUNT)
+        return slideHash(THEME_SLIDE, themeSub + 1);
+      return slideHash(Math.min(current + 1, TOTAL), 0);
+    }
+
+    function updateDisplay() {
+      currentNum.textContent = current;
+      if (current === THEME_SLIDE) {
+        let html = themeNoteIntro;
+        for (let i = 0; i < themeSub; i++) html += '<br><br>' + themeNoteItems[i];
+        notesContent.innerHTML = html;
+      } else {
+        notesContent.innerHTML = (notes[current] || '').replace(/\n/g, '<br>');
+      }
+      const bust = '?_=' + Date.now();
+      currentFrame.src = 'saas-to-the-future.html' + bust + slideHash(current, themeSub);
+      previewFrame.src = 'saas-to-the-future.html' + bust + nextSlideHash();
+      prevBtn.disabled = current <= 1 && themeSub <= 0;
+      nextBtn.disabled = current >= TOTAL;
+    }
+
+    function navigate() {
+      updateDisplay();
+      channel.postMessage({ type: 'goto', slide: current, sub: current === THEME_SLIDE ? themeSub : undefined });
+    }
+
+    function goNext() {
+      if (current === THEME_SLIDE && themeSub < THEME_COUNT) {
+        themeSub++;
+      } else if (current < TOTAL) {
+        current++;
+        themeSub = 0;
+      }
+      navigate();
+    }
+
+    function goPrev() {
+      if (current === THEME_SLIDE && themeSub > 0) {
+        themeSub--;
+      } else if (current > 1) {
+        current--;
+        themeSub = current === THEME_SLIDE ? THEME_COUNT : 0;
+      }
+      navigate();
+    }
+
+    restartBtn.addEventListener('click', () => {
+      current = 1;
+      themeSub = 0;
+      updateDisplay();
+      channel.postMessage({ type: 'goto', slide: 1, restart: true });
+    });
+    prevBtn.addEventListener('click', goPrev);
+    nextBtn.addEventListener('click', goNext);
 
     document.addEventListener('keydown', e => {
-      if (['ArrowRight', 'ArrowDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); nextBtn.click(); }
-      if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); prevBtn.click(); }
+      if (['ArrowRight', 'ArrowDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); goNext(); }
+      if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); goPrev(); }
     });
 
     channel.onmessage = e => {
       if (e.data.type === 'slideChanged') {
         current = e.data.slide;
-        update();
+        themeSub = e.data.themesRevealed || 0;
+        updateDisplay();
       }
     };
 
-    update();
+    navigate();
   </script>
 </body>
 </html>
